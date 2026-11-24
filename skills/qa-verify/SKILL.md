@@ -33,6 +33,25 @@ verification on top; it never replaces or weakens a project gate.
 - Re-run this stage after any consequential code change; old evidence does not
   cover a new diff.
 
+## Choose where to run
+
+There are two targets. Both are run by an agent; the user only reviews evidence.
+
+- **vps** (default): the machine the coding agents run on. Use it when the
+  change can be proven with the repo's tests, stubs, and small containers.
+- **mac**: the user's own machine with the full local stack (heavy services
+  such as camera orchestrators or Frigate). Use it when a matrix row needs a
+  service that cannot run or be faithfully stubbed on the VPS.
+
+The user can name the target ("target mac"). Otherwise use vps, and when the
+change touches parts that need the full local stack, say so in the plan's
+Proof line and ask which target to use. Never silently downgrade: if the chosen
+target is unreachable, report it as a blocker.
+
+Project specifics, including how to hand work to the mac target, are in the
+project's notes file when one exists:
+- drones_columbus: [references/drones-columbus.md](references/drones-columbus.md)
+
 ## Ordered workflow
 
 ### 1. Map the change to observable surfaces
@@ -64,8 +83,9 @@ One row per acceptance criterion, plus the edge cases that apply:
 
 ### 3. Bring up the stack
 
-Use the project's documented way (its verify skill, README, compose files,
-Gradle/Maven tasks, Testcontainers). Seed the minimum data the matrix needs.
+Use the project's notes for the chosen target, then the project's documented
+way (its verify skill, README, compose files, Gradle/Maven tasks,
+Testcontainers). Seed the minimum data the matrix needs.
 Record the commands and confirm the app is healthy before testing.
 
 ### 4. Exercise each row
@@ -102,7 +122,7 @@ application repository unless the project asks for that.
 ```markdown
 # QA evidence: <task>
 
-**Head:** <full sha>   **Stack:** <how it was started>   **Data:** <seed used>
+**Head:** <full sha>   **Target:** <vps / mac>   **Stack:** <how it was started>   **Data:** <seed used>
 
 ## Verdict
 <one line: verified / verified with gaps / blocked>
