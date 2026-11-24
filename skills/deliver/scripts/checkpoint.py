@@ -17,11 +17,24 @@ TRANSITIONS = {
     "implementing": {"validating"},
     "validating": {"implementing", "documenting"},
     "documenting": {"implementing", "reviewing"},
-    "reviewing": {"implementing", "publishing"},
+    "reviewing": {"implementing", "publishing", "awaiting_output_review"},
+    # Human output review before the first publication; leave only via
+    # signoff (-> publishing) or a requested change (-> implementing).
+    "awaiting_output_review": {"implementing"},
     "publishing": {"implementing", "watching"},
     "watching": {"implementing", "reviewing", "ready"},
     "ready": {"implementing", "reviewing", "watching"},
 }
+
+
+SHA = r"[a-f0-9]{40}|[a-f0-9]{64}"
+
+
+def require_checkout_head(project, head):
+    if not head or not re.fullmatch(SHA, head):
+        raise ValueError("Use a full head SHA")
+    if head != git(project, "rev-parse", "HEAD"):
+        raise ValueError("Recorded head does not match the current checkout")
 
 
 def nonblank(value):
@@ -116,6 +129,15 @@ def run(args, project, directory):
                              "plan_sha256": state["plan_sha256"]}
         atomic_write(directory / "approved-plan.md", text.decode("utf-8"))
         state["phase"] = "implementing"
+    elif args.command == "signoff":
+        if state["phase"] != "awaiting_output_review":
+            raise ValueError("Output sign-off must refer to output awaiting review")
+        require_current_approval(state)
+        require_checkout_head(project, state.get("output_review", {}).get("head"))
+        state["output_signoff"] = {"user_ref": args.user_ref,
+                                   "head": state["output_review"]["head"],
+                                   "plan_sha256": state["plan_sha256"]}
+        state["phase"] = "publishing"
     elif args.command == "complete":
         if not state.get("pr"):
             raise ValueError("Track the PR before recording its outcome")
@@ -133,6 +155,7 @@ def run(args, project, directory):
             state["phase"] = "implementing"
         else:
             state["approval"] = None
+            state.pop("output_signoff", None)
             state["phase"] = "awaiting_approval"
         state["plan_sha256"] = digest(plan_text(state))
         state["head"] = None
@@ -142,6 +165,17 @@ def run(args, project, directory):
         require_current_approval(state)
         if args.name not in TRANSITIONS.get(state["phase"], set()):
             raise ValueError("Invalid phase transition: " + state["phase"] + " -> " + args.name)
+        if args.name == "awaiting_output_review":
+            if not args.evidence:
+                raise ValueError("Output review requires evidence (the QA evidence packet path)")
+            require_checkout_head(project, args.head)
+            state["output_review"] = {"head": args.head, "evidence": args.evidence}
+        if args.name == "publishing" and not state.get("pr"):
+            signoff = state.get("output_signoff")
+            if not signoff:
+                raise ValueError("First publication requires the user's output sign-off")
+            if signoff["head"] != git(project, "rev-parse", "HEAD"):
+                raise ValueError("Checkout changed since output sign-off; request review again")
         if args.name in {"watching", "ready"}:
             if not args.evidence or not args.head:
                 raise ValueError("Watching/ready require evidence and a full current head SHA")
@@ -171,7 +205,7 @@ def run(args, project, directory):
             require_current_approval(state)
         state["phase"] = state.pop("resume_phase")
     evidence = getattr(args, "reason", "") or getattr(args, "evidence", "")
-    if args.command == "approve":
+    if args.command in {"approve", "signoff"}:
         evidence = args.user_ref
     event(state, args.command, evidence)
     atomic_write(path, json.dumps(state, indent=2) + "\n")
@@ -202,6 +236,8 @@ def main():
     phase.add_argument("--pr")
     block = commands.add_parser("block")
     block.add_argument("--reason", type=nonblank, required=True)
+    signoff = commands.add_parser("signoff")
+    signoff.add_argument("--user-ref", type=nonblank, required=True)
     commands.add_parser("resume")
     commands.add_parser("status")
     complete = commands.add_parser("complete")

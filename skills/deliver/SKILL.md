@@ -1,12 +1,17 @@
 ---
 name: deliver
-description: Coordinate a coding task from an approved plan through implementation, reviews, and PR maintenance until merged or closed in T3 Code. Supports planning-only and explicit resume requests.
+description: Coordinate a coding task from an approved plan through implementation, QA verification, output sign-off, reviews, and PR maintenance until merged or closed in T3 Code. Supports planning-only and explicit resume requests.
 ---
 
 # Deliver
 
 Coordinate the task; the host executes tools and resumes PR events. Read project
-instructions first. Project procedures own their checks, review tiers, plan
+instructions first.
+
+The user takes part at exactly two gates: **plan approval** and **output
+sign-off** before the first publication. Everything between and after runs
+without prompting them, except blockers and scope changes described below.
+Make both gates fast to review by using the fixed review cards. Project procedures own their checks, review tiers, plan
 format, and publishing gates. This skill supplies the sequencing and checkpoint.
 
 ## Start or resume
@@ -41,7 +46,20 @@ CI maintenance when requested. Record allowed external actions and what requires
 a new user decision. Planning-only mode authorizes the draft and checkpoint;
 it does not authorize implementation, commits, pushes, or PR writes.
 
-Present the concrete plan and wait for the user's sign-off. Initialize the
+End the plan with this plan review card, then present the card and wait for the
+user's sign-off:
+
+```markdown
+### Plan review card: <task>
+- **Problem / root cause:** <one or two lines, with the evidence>
+- **Change:** <what changes; main files/modules>
+- **Out of scope:** <what will not change>
+- **Risk:** <tier per project policy; migrations/config/security notes>
+- **Proof:** <tests to add + qa-verify matrix highlights incl. edge cases>
+- **Needs your decision:** <open questions, or "none">
+```
+
+Wait for the user's sign-off. Initialize the
 checkpoint as awaiting_approval. Existing explicit approval of this exact scope
 can satisfy the gate; cite its user-message reference rather than asking again.
 
@@ -55,6 +73,11 @@ Enter validating and run the project's selected checks. Repository-required
 checks and coverage gates take precedence over a generic targeted-test shortcut.
 Record commands and actual outcomes. Local validation precedes publication;
 remote PR checks run after publication.
+
+Then run qa-verify against a running stack and write its evidence packet in the
+task directory. A FAIL row returns to implementing. Behaviour the packet lists
+under "Manual checks required" must stay visible at the output gate; do not
+drop it. Record the packet path and verdict as validation evidence.
 
 Enter documenting, update the owning docs/contracts when behavior changes, and
 perform author self-checks. Run verification again after any consequential edit.
@@ -91,6 +114,34 @@ For every actionable finding, including one discovered after publication:
 A residual risk needs a documented disposition: corrected, shown to be mitigated,
 or accepted by the authority required by project policy. The coordinator cannot
 self-accept a blocking finding or a risk reserved for the user.
+
+## Output sign-off
+
+Before the first publication of the task, after required reviews pass, refresh
+qa-verify if the diff changed since its last run. Enter awaiting_output_review
+with the current head and the evidence packet path, present this card, and end
+the turn:
+
+```markdown
+### Output review card: <task> @ <short sha>
+- **Delivered:** <what now works, one or two lines>
+- **QA verdict:** <verified / verified with gaps / blocked> — <packet path>
+- **Proof highlights:** <key matrix rows, regression before/after, tests added>
+- **Manual checks required:** <from the packet, or "none">
+- **Reviews:** <independent review results and dispositions>
+- **Diff size:** <files, +/-; flag anything unrelated to the plan>
+- **Before deploy:** <migrations, env vars, flags>
+```
+
+On the user's actual sign-off of this head, record it with the helper's
+signoff command; it moves the task to publishing. A requested change returns to
+implementing (a scoped amendment or new plan approval per the rules above), and
+the changed head needs a fresh card and sign-off. This sign-off is the user's
+consent to push and open the PR.
+
+After the PR exists, validated in-scope repairs (CI, review findings,
+conflicts) publish without another output sign-off. A material scope/design
+change clears it with the plan approval.
 
 ## Publish and maintain
 
@@ -145,6 +196,7 @@ Before reporting readiness, freshly read the PR and verify:
 - pending human approvals are reported as blockers rather than auto-approved.
 
 Use finish for the readiness assessment and record ready against that head.
+Include the latest QA verdict and any manual checks in the readiness report.
 Ready is a monitored state, not task completion. Notify once per newly ready
 head/state, keep the watch, and end the turn. Later feedback or conflicts return
 through the repair loop; do not repeat readiness messages on unchanged wakes.

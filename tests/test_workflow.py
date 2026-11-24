@@ -45,9 +45,15 @@ class WorkflowTests(unittest.TestCase):
     def approve(self):
         self.cp("approve", "--user-ref", "user-message-approval")
 
-    def advance_to_watching(self):
-        for phase in ["validating", "documenting", "reviewing", "publishing"]:
+    def advance_to_publishing(self):
+        for phase in ["validating", "documenting", "reviewing"]:
             self.cp("phase", phase)
+        self.cp("phase", "awaiting_output_review", "--head", self.head,
+                "--evidence", "qa-evidence.md: all rows PASS")
+        return self.cp("signoff", "--user-ref", "user-message-output-ok")
+
+    def advance_to_watching(self):
+        self.advance_to_publishing()
         return self.cp("phase", "watching", "--head", self.head,
                        "--pr", "https://github.com/example/project/pull/1",
                        "--evidence", "PR created; remote checks pending")
@@ -156,11 +162,60 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(state["phase"], "merged")
         self.assertIsNone(state["plan_matches"])
 
+    def test_first_publication_requires_output_signoff_of_current_head(self):
+        self.init()
+        self.approve()
+        for phase in ["validating", "documenting", "reviewing"]:
+            self.cp("phase", phase)
+        self.cp("phase", "publishing", ok=False)
+        self.cp("signoff", "--user-ref", "too-early", ok=False)
+        self.cp("phase", "awaiting_output_review", "--head", self.head, ok=False)
+        self.cp("phase", "awaiting_output_review", "--head", "0" * 40,
+                "--evidence", "packet", ok=False)
+        state = self.cp("phase", "awaiting_output_review", "--head", self.head,
+                        "--evidence", "qa-evidence.md")
+        self.assertEqual(state["phase"], "awaiting_output_review")
+        self.cp("phase", "publishing", ok=False)
+        # Requested change goes back to implementation; sign-off is for a new head.
+        self.cp("phase", "implementing", "--evidence", "User asked for a copy change")
+        (self.project / "fix.txt").write_text("fix\n")
+        self.git("add", "fix.txt")
+        self.git("commit", "-qm", "fix: copy change")
+        new_head = self.git("rev-parse", "HEAD").stdout.strip()
+        for phase in ["validating", "documenting", "reviewing"]:
+            self.cp("phase", phase)
+        self.cp("phase", "awaiting_output_review", "--head", new_head,
+                "--evidence", "qa-evidence.md refreshed")
+        state = self.cp("signoff", "--user-ref", "user-message-output-ok")
+        self.assertEqual(state["phase"], "publishing")
+        self.assertEqual(state["output_signoff"]["head"], new_head)
+        self.assertEqual(state["history"][-1]["evidence"], "user-message-output-ok")
+
+    def test_in_scope_repairs_after_publication_need_no_new_signoff(self):
+        self.init()
+        self.approve()
+        self.advance_to_watching()
+        self.cp("phase", "implementing", "--evidence", "CI failure")
+        (self.project / "repair.txt").write_text("repair\n")
+        self.git("add", "repair.txt")
+        self.git("commit", "-qm", "fix: ci repair")
+        for phase in ["validating", "documenting", "reviewing", "publishing"]:
+            self.cp("phase", phase)
+        self.assertEqual(self.cp("status")["phase"], "publishing")
+
+    def test_scope_change_clears_output_signoff(self):
+        self.init()
+        self.approve()
+        self.advance_to_publishing()
+        self.plan.write_text("Fix retries and redesign the queue.\n")
+        state = self.cp("amend", "--reason", "Scope grew")
+        self.assertNotIn("output_signoff", state)
+        self.assertEqual(state["phase"], "awaiting_approval")
+
     def test_pr_url_accepts_normal_names_and_rejects_whitespace(self):
         self.init()
         self.approve()
-        for phase in ["validating", "documenting", "reviewing", "publishing"]:
-            self.cp("phase", phase)
+        self.advance_to_publishing()
         for bad in ["https://git hub.com/acme/widget/pull/17",
                     "https://github.com/acme/wid get/pull/17",
                     "https://github.com/acme/wid\\get/pull/17"]:

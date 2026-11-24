@@ -15,6 +15,9 @@ Do not run every installed skill or repeat equivalent checks.
   work); read it before choosing it instead of develop.
 - Tests: personal test; project verify owns check selection and pre-commit gates.
   Personal check is a fallback when the project has no verification procedure.
+- Behavioural verification: personal qa-verify after tests pass, on a running
+  stack, producing the evidence packet for the output sign-off. Re-run it after
+  consequential changes. It adds to project verify; it never replaces it.
 - Docs and self-check: personal document as needed; project code-review and
   security-self-check as applicable.
 - Simplification: ponytail-review after author checks and before independent
@@ -46,8 +49,8 @@ Use the project's guidance for the actual change:
 
 ## Missing capabilities
 
-The bundle supplies audit, scope, architect, develop, test, document, autopilot,
-finish, and ponytail-review. Existing local skills are preserved by the
+The bundle supplies audit, scope, architect, develop, test, qa-verify, document,
+autopilot, finish, and ponytail-review. Existing local skills are preserved by the
 installer; inspect the actual installed version before use.
 
 Specialist and repository-policy skills remain in the project checkout; this

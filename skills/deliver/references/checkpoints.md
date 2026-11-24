@@ -14,6 +14,8 @@ python3 <deliver-skill>/scripts/checkpoint.py --project /path/to/project --task 
 python3 <deliver-skill>/scripts/checkpoint.py --project /path/to/project --task retry-fix init --plan /path/to/plan.md --thread-ref current-thread-link
 python3 <deliver-skill>/scripts/checkpoint.py --project /path/to/project --task retry-fix approve --user-ref approving-user-message
 python3 <deliver-skill>/scripts/checkpoint.py --project /path/to/project --task retry-fix phase validating --evidence "Regression test passed"
+python3 <deliver-skill>/scripts/checkpoint.py --project /path/to/project --task retry-fix phase awaiting_output_review --head <full-sha> --evidence "/path/to/task/qa-evidence.md: verified"
+python3 <deliver-skill>/scripts/checkpoint.py --project /path/to/project --task retry-fix signoff --user-ref approving-output-message
 python3 <deliver-skill>/scripts/checkpoint.py --project /path/to/project --task retry-fix status
 ```
 
@@ -33,8 +35,17 @@ approval is recorded. Implementation always needs approval. Successful commands
 write atomically under a local process lock. The lock serializes checkpoint
 writes; it is not a cross-machine or whole-task execution lock.
 
-Normal phases are implementing, validating, documenting, reviewing, publishing,
-watching, and ready. Ready means green and still monitored until merged/closed;
+Normal phases are implementing, validating, documenting, reviewing,
+awaiting_output_review, publishing, watching, and ready.
+
+Output sign-off: before the task's first publication, publishing requires a
+recorded signoff for the current checkout head. Enter awaiting_output_review
+with `--head` and `--evidence` (the QA evidence packet), then record the user's
+actual sign-off with `signoff --user-ref`, which moves to publishing. From
+awaiting_output_review, a requested change goes back to implementing; the new
+head needs a new review and sign-off. Once a PR is tracked, in-scope repairs move
+reviewing → publishing without a new sign-off. A scope amendment (without
+`--within-scope`) clears the sign-off together with plan approval. Ready means green and still monitored until merged/closed;
 it is not completion. Late suggestions or conflicts return to implementing,
 then validation and review. Mark blocked with
 `block --reason "..."`; `resume` restores the previous phase but still checks

@@ -5,6 +5,12 @@ concrete plan, and then let the agent implement, test, obtain independent
 reviews, open a PR, and maintain it through feedback and conflicts until it is
 merged or closed. Passing CI reports readiness and keeps monitoring active.
 
+**Fork changes (QA tailoring):** the user is involved at two gates only, plan
+approval and output sign-off. A `qa-verify` stage proves behaviour on a running
+stack and writes an evidence packet, replacing manual local re-testing. Output
+sign-off of the current head is required before the first PR publication; later
+in-scope repairs continue automatically. Both gates use fixed review cards.
+
 This repository is personal tooling. Install it in your home directory; it adds
 no workflow files, dependencies, or configuration to an application repository.
 
@@ -113,10 +119,13 @@ flowchart TD
     approval -->|Revise| plan
     approval -->|Yes| implement["Implement<br/>develop, tdd<br/>Relevant specialist skills"]
     implement --> validate["Test and validate locally<br/>test, verify"]
-    validate --> docs["Docs and author checks<br/>document, code-review<br/>security-self-check when relevant"]
+    validate --> qa["Prove behaviour on a running stack<br/>qa-verify evidence packet"]
+    qa --> docs["Docs and author checks<br/>document, code-review<br/>security-self-check when relevant"]
     docs --> simplify["Simplification pass<br/>ponytail-review"]
     simplify --> reviews["Independent reviews per policy<br/>adversarial-review, security-review<br/>e2e-impact-review"]
-    reviews --> publish["Publish and link the PR<br/>create-pr + link_pull_request"]
+    reviews --> signoff{"User signs off the output?<br/>Output review card; deliver records it"}
+    signoff -->|Changes| implement
+    signoff -->|Yes| publish["Publish and link the PR<br/>create-pr + link_pull_request"]
     publish --> maintain["Maintain the PR<br/>autopilot + watch_pull_request"]
     maintain -->|Latest head satisfies all gates| ready["Report newly ready head<br/>finish; keep watching"]
     ready --> maintain
@@ -135,22 +144,25 @@ tools, not separate skills.
 3. Reviewable plan: project `plan`; `spec-create` for a new durable contract.
 4. User approval: record the plan revision and actual approving user message.
 5. Implementation: `develop`, project `tdd`, and relevant specialist guidance.
-6. Behavior and local validation: `test` plus project `verify`.
+6. Behavior and local validation: `test` plus project `verify`, then
+   `qa-verify` on a running stack with an evidence packet.
 7. Docs and author checks: `document`, project `code-review`, and
    `security-self-check` when relevant, followed by `ponytail-review` before
    independent review.
 8. Independent review: project `adversarial-review`, `security-review`, and
    `e2e-impact-review` under its policy. In SkyTrade's current policy,
    adversarial review applies at S1+ and separate security review at S2+.
-9. Publish: project `create-pr`, including its review packet and wrapper.
-10. Maintain until merged/closed: `autopilot` for triage plus T3's PR watcher.
-11. Report readiness: `finish`, based on the latest head; keep watching.
-12. Final handoff: `deliver` records a confirmed merge/closure and stops the watch.
+9. Output sign-off: present the output review card; record the user's
+   sign-off of the current head before the first publication.
+10. Publish: project `create-pr`, including its review packet and wrapper.
+11. Maintain until merged/closed: `autopilot` for triage plus T3's PR watcher.
+12. Report readiness: `finish`, based on the latest head; keep watching.
+13. Final handoff: `deliver` records a confirmed merge/closure and stops the watch.
 
 Use the project's documented equivalents when a named skill is unavailable.
 General skills never bypass project gates. The package bundles only `audit`,
-`scope`, `architect`, `develop`, `test`, `document`, `autopilot`, `finish`, and
-`ponytail-review`. It does not vendor application-specific policies.
+`scope`, `architect`, `develop`, `test`, `qa-verify`, `document`, `autopilot`,
+`finish`, and `ponytail-review`. It does not vendor application-specific policies.
 
 Specialists are selected by the actual change: Spring guidance for Java,
 `jpa-patterns`/`database-migrations` for persistence, `plain-language` for copy,
