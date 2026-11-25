@@ -11,6 +11,30 @@ another is given. Work in the current worktree, branched off dev.
 Use deliver as the coordinator and qa-verify for verification. The rules below
 add to deliver and the project's own rules; they never loosen a project gate.
 
+## Modes
+
+- **New ticket:** given an issue in a fresh worktree off dev. Run every step.
+- **Takeover:** this worktree already has work for the ticket (an existing diff,
+  or the user says "takeover"). Do not redo or rewrite it. Read the issue and
+  the existing diff, confirm the ticket still applies, then start at step 3 and
+  write the plan from them.
+- **Continue:** a plan already exists and the user approves it, even in a few
+  words ("approved", "ok, go"). Record the approval and continue from the first
+  unfinished step. Apply any short answers the user gave to open decisions.
+
+## Ground rules (these override anything older in this thread)
+
+- Learn what this machine can do by checking, not from earlier messages. Before
+  planning validation, run `java -version` and `docker info`, and read
+  `~/.agents/skills/qa-verify/references/drones-columbus.md`. If earlier
+  messages say a tool is missing and it is now present, use it and correct the
+  plan.
+- Never push, and never ask to push, before output sign-off. If a check needs
+  the user's Mac, use qa-verify's mac target; it fetches the branch from the VPS
+  over SSH.
+- Do not use or suggest `run-fix`.
+- Keep "Needs your decision" for real product or scope choices.
+
 ## 1. Read the ticket
 
 Run `gh issue view <NUMBER> --repo SkyTradeLinks/drones_columbus --comments`.
@@ -46,7 +70,12 @@ Wait for approval.
 
 ## 5. Verify
 
-Run qa-verify on a running stack. Before starting the stack, check that no other
+Run the project's checks for real on this machine: formatter (Spotless),
+compile, and the selected unit and e2e tests. Show each new regression test
+failing on origin/dev and passing on the branch.
+
+Then run qa-verify on a running stack, including screenshots of each affected
+page in the running app at the widths the ticket cares about. Before starting the stack, check that no other
 app stack is running on this machine and use a port unique to this worktree.
 Capture before/after evidence (screenshots for UI, request/response for API).
 
