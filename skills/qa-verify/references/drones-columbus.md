@@ -1,8 +1,17 @@
 # drones_columbus notes for qa-verify
 
 Main checkout on the Mac: `/Users/shivam/Desktop/drones_columbus`
-VPS: reachable from the Mac as the SSH alias `skytrade-vps`. Coding agents run
-there in T3 worktrees under `/root/.t3/worktrees/drones/`.
+
+Agent machines (run `hostname` to see which one you are on, then follow its
+section below):
+
+| Host | Mac SSH alias | Mac git remote | Repo on the host |
+|---|---|---|---|
+| `ubuntu-4gb-hel1-2` (Hetzner VPS) | `skytrade-vps` | `vps` | `/mnt/data/drones` |
+| `mz-03` (16 GB VM, over Cloudflare) | `mz-ai` | `mz` | `/home/mz/src/drones_columbus` |
+
+The "vps" target means the agent machine the thread runs on. A ticket stays on
+the machine where it started.
 
 ## Which target
 
@@ -12,7 +21,31 @@ snapshots, incidents created by the orchestrator, go2rtc streams, or the VLM
 gateway. Use **vps** for everything else, including UI fixes that seeded data
 or the repo's existing test stubs can drive.
 
-## VPS target
+## mz-03
+
+Machine: 4 CPUs, Hyper-V dynamic memory (shows about 1.7 GiB at idle and grows
+to about 12 GiB under load), 8 GiB swap file plus 2 GiB swap, 195 GB disk.
+Java 21, Docker, the Maven wrapper and Playwright Chromium are installed.
+`MAVEN_OPTS=-Xmx3g` is set in `~/.profile` and `~/.mavenrc`.
+
+- **Check the T3 agent memory cap before every heavy step.** T3 caps
+  `app-t3code-agents.slice` from the memory visible at idle, which starves
+  builds (startup of 11 to 21 minutes, swap thrashing). Check with
+  `systemctl --user show app-t3code-agents.slice -p MemoryHigh -p MemoryMax`.
+  If MemoryHigh is below 8G, re-apply the approved runtime override:
+  `systemctl --user set-property --runtime app-t3code-agents.slice MemoryHigh=12G MemoryMax=14G`,
+  confirm it, and record that you did so in the evidence. Never make it
+  permanent.
+- **Expected times with the cap lifted:** app startup under 70 s; one e2e class
+  2.5 to 3.5 minutes; the first run in a fresh worktree builds the Vaadin dev
+  bundle (about 30 s) and later runs reuse `target/dev-bundle`. If a run is much
+  slower, check the cap first.
+- **Parallel work:** one e2e run peaks at about 4 to 6 GiB. Up to two heavy
+  verifications may run at the same time; check `free -h` and the cap first.
+- MAPBOX_TOKEN, Testcontainers clean-up, Playwright install and the camera
+  stack: same rules as the VPS below.
+
+## VPS (ubuntu-4gb-hel1-2)
 
 Machine: 2 CPUs, 3.7 GiB RAM, 8 GiB swap. Java 21, Docker, the Maven wrapper,
 and Playwright 1.49 with Chromium are installed.
@@ -50,18 +83,21 @@ Run only in a thread on the Mac environment (or a linked Mac thread).
 
 ### Get the code without pushing to GitHub
 
-The branch lives on the VPS. Fetch it over SSH into a separate worktree;
+The branch lives on the agent machine. Fetch it over SSH from that machine's
+remote (`vps` or `mz`, see the table at the top) into a separate worktree;
 never switch the branch of the main checkout, which the user may be using.
+`mz` is reachable only while the Cloudflare One client on the Mac is
+connected.
 
 ```bash
 cd /Users/shivam/Desktop/drones_columbus
-git fetch vps "<branch>"
+git fetch <remote> "<branch>"
 git worktree add ~/qa-worktrees/drones/<task-slug> FETCH_HEAD
 ```
 
 Confirm the worktree's `git rev-parse HEAD` equals the head SHA you were given.
-If the `vps` remote is missing, stop and tell the user to finish the one-time
-Mac setup.
+If the remote is missing, stop and tell the user to finish the one-time Mac
+setup.
 
 ### Start the stack, in this order
 
@@ -100,15 +136,16 @@ reuse running services instead of starting duplicates.
 
 - Write the evidence packet and its screenshots in the task worktree's parent
   folder (`~/qa-worktrees/drones/<task-slug>-evidence/`), not inside the repo.
-- If you were given a VPS evidence path, copy the packet and artefacts there:
-  `scp -r <evidence dir>/. skytrade-vps:<vps evidence path>/`
+- If you were given an evidence path on the agent machine, copy the packet and
+  artefacts there with that machine's alias:
+  `scp -r <evidence dir>/. <alias>:<evidence path>/`
 - Stop only what you started. Leave services that were already running.
 - Keep the worktree until the user signs off, then remove it with
   `git worktree remove`.
 
-## Handing a task from the VPS to the Mac
+## Handing a task from an agent machine to the Mac
 
-When the VPS thread decides the mac target is needed:
+When an agent-machine thread decides the mac target is needed:
 
 1. Commit the work on the task branch locally (do not push to GitHub).
 2. If T3 linked environments are enabled, start a thread on the user's Mac
@@ -117,7 +154,8 @@ When the VPS thread decides the mac target is needed:
    on the Mac environment, project drones, filled in:
 
    > Use qa-verify with target mac. Branch `<branch>` at `<full head sha>` from
-   > the `vps` remote, for issue `<issue url>`. Verify this matrix: `<rows>`.
-   > Copy the evidence to `skytrade-vps:<vps evidence path>` when done.
+   > the `<vps or mz>` remote, for issue `<issue url>`. Verify this matrix:
+   > `<rows>`. Copy the evidence to `<skytrade-vps or mz-ai>:<evidence path>`
+   > when done.
 
 4. When the evidence arrives, read it and continue to the output review card.
