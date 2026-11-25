@@ -14,13 +14,35 @@ or the repo's existing test stubs can drive.
 
 ## VPS target
 
-- One verification at a time: the machine has about 4 GB of RAM. Check
-  `free -h` and `docker ps` before starting anything heavy.
+Machine: 2 CPUs, 3.7 GiB RAM, 8 GiB swap. Java 21, Docker, the Maven wrapper,
+and Playwright 1.49 with Chromium are installed.
+
+- **One heavy step at a time.** Check `free -h` and `docker ps` first. Run Maven
+  with `MAVEN_OPTS=-Xmx1200m` and under `nice`. Build only what you need
+  (`-pl user-app -am`); a cold full `test-compile` takes about 11 minutes,
+  mostly frontend/node builds.
+- **E2E command:**
+  `./mvnw test -Pe2e -pl user-app -am -De2e.headless=true -Dtest=<Class> -B`.
+  Expect 3 to 5 minutes per test class.
+- **Cold start in a fresh worktree:** the first e2e run builds Vaadin's dev
+  bundle during app startup, and the login form can miss its 20 s wait. Before
+  treating an e2e failure as real, warm up with `LoginEnumerationE2ETest` or
+  rerun once, and record both runs in the evidence.
+- **MAPBOX_TOKEN** comes from the provider environment. Tests that call
+  `assumeMapboxTokenConfigured()` are skipped, not failed, when it is unset
+  (the Adsb*, Airspace*, Detection*, Tfr* and several permit/operation e2e
+  classes). A skipped test is not a pass: report skipped tests by name. Other
+  tests that geocode municipalities through Mapbox may fail without it.
+- **Testcontainers clean-up:** after your runs, check `docker ps` for
+  containers your session left (label `org.testcontainers.sessionId`) and
+  remove them. If removal is denied, report the container IDs to the user.
+- **Playwright browsers:** if Chromium is missing, run
+  `com.microsoft.playwright.CLI install --with-deps chromium` with `java -cp`
+  on the Playwright jars in `~/.m2`. `exec:java` under `-pl user-app -am` fails
+  because `common` has no Playwright dependency.
 - The camera stack does not run here. Use the repo's existing stubs or test
   profiles for camera services. If a row truly needs the real stack, mark it
   for the mac target instead of faking a result.
-- `MAPBOX_TOKEN` comes from the provider environment. If it is missing and a
-  test needs it, report that; never let the test skip silently.
 
 ## Mac target
 
