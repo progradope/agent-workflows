@@ -162,7 +162,9 @@ tools, not separate skills.
 Use the project's documented equivalents when a named skill is unavailable.
 General skills never bypass project gates. The package bundles only `audit`,
 `scope`, `architect`, `develop`, `test`, `qa-verify`, `document`, `autopilot`,
-`finish`, and `ponytail-review`. It does not vendor application-specific policies.
+`finish`, and `ponytail-review`, plus `fix-ticket` (one-line ticket entry point)
+and `pr-visual-evidence` (before/after screenshots in the PR description). It
+does not vendor application-specific policies.
 
 Specialists are selected by the actual change: Spring guidance for Java,
 `jpa-patterns`/`database-migrations` for persistence, `plain-language` for copy,

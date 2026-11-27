@@ -96,11 +96,10 @@ After sign-off, deliver publishes the PR and maintains it until merged or closed
 
 If the change is visible to users, attach before/after evidence to the PR right
 after it is published, and again after later commits change the visuals. Use
-the project's PR visual evidence skill (for drones_columbus:
-`pr-visual-evidence` with `scripts/attach-pr-evidence.sh`), passing the
-qa-verify screenshots that match the current head. Put the evidence comment
-link in the PR body and in the readiness report. If the project has no such
-skill yet, list the screenshots in the PR body and tell the user.
+the `pr-visual-evidence` skill, passing the qa-verify screenshots that match
+the current head. It writes a Visual evidence section into the PR description;
+mention it in the readiness report. If the after screenshots are missing,
+capture them first; never publish evidence from another head.
 
 ## 7. After merge
 
