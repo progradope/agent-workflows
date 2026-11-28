@@ -5,8 +5,11 @@ description: Fix one GitHub issue end to end with deliver and qa-verify under Sh
 
 # Fix ticket
 
-Input: an issue number or URL. The repo is SkyTradeLinks/drones_columbus unless
-another is given. Work in the current worktree, branched off dev.
+Input: an issue number or URL. The repo is the one in the URL, else the current
+checkout's GitHub repo (`gh repo view --json nameWithOwner -q .nameWithOwner`),
+else SkyTradeLinks/drones_columbus. Work in the current worktree, branched off
+the repo's integration branch (`dev` for drones_columbus; other repos: see
+their notes file, else the default branch). Below, "dev" means that branch.
 
 Use deliver as the coordinator and qa-verify for verification. The rules below
 add to deliver and the project's own rules; they never loosen a project gate.
@@ -25,10 +28,13 @@ add to deliver and the project's own rules; they never loosen a project gate.
 ## Ground rules (these override anything older in this thread)
 
 - Learn what this machine can do by checking, not from earlier messages. Before
-  planning validation, run `java -version` and `docker info`, and read
-  `~/.agents/skills/qa-verify/references/drones-columbus.md`. If earlier
-  messages say a tool is missing and it is now present, use it and correct the
-  plan.
+  planning validation, read the repo's notes file in
+  `~/.agents/skills/qa-verify/references/` (drones_columbus:
+  `drones-columbus.md`; Urban_Air_Mobility: `urban-air-mobility.md`) and check
+  the toolchain it lists (drones_columbus: `java -version`, `docker info`). If
+  a repo has no notes file, say so and work from its README and CI config. If
+  earlier messages say a tool is missing and it is now present, use it and
+  correct the plan.
 - Never push, and never ask to push, before output sign-off. If a check needs
   the user's Mac, use qa-verify's mac target; it fetches the branch from the VPS
   over SSH.
@@ -37,7 +43,7 @@ add to deliver and the project's own rules; they never loosen a project gate.
 
 ## 1. Read the ticket
 
-Run `gh issue view <NUMBER> --repo SkyTradeLinks/drones_columbus --comments`.
+Run `gh issue view <NUMBER> --repo <OWNER/REPO> --comments`.
 Work only from what the ticket and its comments actually say, plus the code.
 Summarise it in 2-3 lines.
 
@@ -65,13 +71,16 @@ Wait for approval.
 - Make the minimal fix only. Touch nothing outside what the ticket needs.
 - Add or update a regression test that follows the repo's existing patterns
   (e2e or unit). It must fail on dev without the fix; show that where practical.
-- If an e2e test needs MAPBOX_TOKEN and it is unset, say so explicitly. Never
-  let a test skip silently and count it as passing.
+- If a test needs a token or secret (drones_columbus: MAPBOX_TOKEN) and it is
+  unset, say so explicitly. Never let a test skip silently and count it as
+  passing.
 
 ## 5. Verify
 
-Run the project's checks for real on this machine: formatter (Spotless),
-compile, and the selected unit and e2e tests. Show each new regression test
+Run the project's checks for real on this machine: its formatter, compile or
+type-check, lint, and the selected unit and e2e tests (drones_columbus:
+Spotless, compile, unit and e2e; other repos: the commands in their notes file
+or CI config). Show each new regression test
 failing on origin/dev and passing on the branch.
 
 Then run qa-verify on a running stack, including screenshots of each affected
